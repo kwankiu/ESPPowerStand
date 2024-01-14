@@ -47,30 +47,30 @@ def wheel(pos):
         pos -= 170
         return (0, int(pos * 3), int(255 - pos * 3))
 
-def rainbow_cycle(wait, brightness=1.0):
+async def rainbow_cycle(wait, brightness=1.0):
     for j in range(255):
         for i in range(num_pixels):
             pixel_index = (i * 256 // num_pixels) + j
             np[i] = scale_brightness(wheel(pixel_index & 255), brightness)
         np.write()
-        time.sleep_ms(wait)
+        await asyncio.sleep_ms(wait)
 
-def color_breathing(color, duration, brightness=1.0, steps=100):
+async def color_breathing(color, duration, brightness=1.0, steps=100):
     r, g, b = color
     for step in range(steps):
         brightness_value = int(brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
         np.fill(scale_brightness((r, g, b), brightness_value / 255))
         np.write()
-        time.sleep_ms(duration // steps)
+        await asyncio.sleep_ms(duration // steps)
 
-def random_flash(num_flashes, flash_duration, delay, brightness=1.0):
+async def random_flash(num_flashes, flash_duration, delay, brightness=1.0):
     for _ in range(num_flashes):
         np.fill(scale_brightness(random_color(), brightness))
         np.write()
-        time.sleep_ms(flash_duration)
+        await asyncio.sleep_ms(flash_duration)
         np.fill((0, 0, 0))  # Turn off the lights
         np.write()
-        time.sleep_ms(delay)
+        await asyncio.sleep_ms(delay)
 
 def static_color(color, brightness=1.0):
     np.fill(scale_brightness(color, brightness))
@@ -214,32 +214,33 @@ async def main():
 async def run_neopixel():
     while True:
         # Rainbow wave effect
-        #rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
         #display.text('Rainbow', 36, 0, 1)
+        #await rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
         
         # Color breathing effect (e.g., breathing white)
-        #color_breathing((255, 255, 255), 2000)  # Adjust the color and duration as needed
         #display.text('Breathing', 30, 0, 1)
+        #await color_breathing((255, 255, 255), 2000)  # Adjust the color and duration as needed
         
         # Random color flashes
-        #random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
         #display.text('Flashing', 32, 0, 1)
+        #await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
         
         # Static color effect (e.g., static blue)
-        #static_color((0, 0, 255))  # Adjust the static color as needed
         #display.text('Static', 40, 0, 1)
+        #static_color((0, 0, 255))  # Adjust the static color as needed
+        
         
         # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
-        display.text('Watercolor', 26, 0, 1)
-        await watercolor_rainbow_cycle(5, 1)  # Adjust the value to control the speed of the watercolor rainbow cycle
+        #display.text('Watercolor', 26, 0, 1)
+        #await watercolor_rainbow_cycle(5, 1)  # Adjust the value to control the speed of the watercolor rainbow cycle
         
         # Random effect (randomly loop among all color effects)
-        # Coming Soon
         #display.text('Random', 40, 0, 1)
+        #await Coming Soon
         
         # Lights off (turn off the rgb light)
-        #static_color((0, 0, 0))
-        #display.text('Light Off', 30, 0, 1)
+        display.text('Light Off', 30, 0, 1)
+        static_color((0, 0, 0))
         
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)

@@ -34,17 +34,20 @@ np = NeoPixel(pin, num_pixels)
 rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
 
-neopixel_mode="off"
+neopixel_mode="rainbow"
 neopixel_brightness="1.0"
 neopixel_speed="10"
 
 # MQTT callback function
 def mqtt_callback(topic, msg):
+    global neopixel_mode # Declare neopixel_mode as a global variable
     if topic == b"homeassistant/light/esp32c3demo1234/set":
         if msg == b"ON":
             print("Light ON")
+            neopixel_mode="rainbow"
         elif msg == b"OFF":
             print("Light OFF")
+            neopixel_mode="off"
             
 mqtt_client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
 mqtt_client.set_callback(mqtt_callback)

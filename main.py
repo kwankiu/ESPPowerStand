@@ -286,18 +286,16 @@ async def check_wifi():
         if current_state:
             if last_state != current_state:
                 print("WiFi Connected")
-            ip_address = wifi.ifconfig()[0]
-            display.text(ip_address, 16, 56, 1)
-            # Synchronize with NTP server to get current time
-            ntptime.settime()
-            # Connect to MQTT broker
-            try:
+                # Synchronize with NTP server to get current time
+                ntptime.settime()
+                # Connect to MQTT broker
                 mqtt_client.connect()
                 # Subscribe to topics for light control
                 mqtt_client.subscribe(b"homeassistant/light/esp32c3demo1234/set")
                 print("MQTT Broker connected.")
-            except OSError:
-                print("MQTT Connection Error: check broker or configuration.")
+            ip_address = wifi.ifconfig()[0]
+            display.text(ip_address, 16, 56, 1)
+
         else:
             if last_state != current_state:
                 print("Waiting for WiFi Connection")

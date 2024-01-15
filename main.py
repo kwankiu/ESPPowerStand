@@ -1,13 +1,27 @@
 from machine import Pin, SoftI2C, RTC
 from neopixel import NeoPixel
 import time
+import ujson
 import math
 import async_urequests as requests
 import urandom
 import ssd1306
 import uasyncio as asyncio
+from umqtt.simple import MQTTClient
 import network
 
+# Read MQTT settings from config.json
+try:
+    with open("config.json", "r") as config_file:
+        config = ujson.load(config_file)
+        MQTT_BROKER = config["mqtt_broker"]
+        MQTT_PORT = config["mqtt_port"]
+        MQTT_USER = config["mqtt_user"]
+        MQTT_PASSWORD = config["mqtt_password"]
+        MQTT_CLIENT_ID = config["mqtt_client_id"]
+except OSError:
+    print("Missing or incorrect configuration in config.json")
+    
 # Using default address 0x3C
 i2c = SoftI2C(sda=Pin(1), scl=Pin(0))
 display = ssd1306.SSD1306_I2C(128, 64, i2c)
@@ -19,6 +33,17 @@ np = NeoPixel(pin, num_pixels)
 
 rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
+
+# MQTT callback function
+def mqtt_callback(topic, msg):
+    if topic == b"homeassistant/light/esp32c3demo1234/set":
+        if msg == b"ON":
+            print("Light ON")
+        elif msg == b"OFF":
+            print("Light OFF")
+            
+mqtt_client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
+mqtt_client.set_callback(mqtt_callback)
 
 month_names = {
     1: 'Jan',
@@ -176,6 +201,11 @@ display.fill(0)
 async def main():
     while True:
         
+        # Check Message
+        try:
+            mqtt_client.check_msg()
+        except:
+            pass
         # Fetch current time and date
         current_time = await get_world_time()
         #current_time = None
@@ -214,8 +244,8 @@ async def main():
 async def run_neopixel():
     while True:
         # Rainbow wave effect
-        #display.text('Rainbow', 36, 0, 1)
-        #await rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
+        display.text('Rainbow', 36, 0, 1)
+        await rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
         
         # Color breathing effect (e.g., breathing white)
         #display.text('Breathing', 30, 0, 1)
@@ -239,8 +269,8 @@ async def run_neopixel():
         #await Coming Soon
         
         # Lights off (turn off the rgb light)
-        display.text('Light Off', 30, 0, 1)
-        static_color((0, 0, 0))
+        #display.text('Light Off', 30, 0, 1)
+        #static_color((0, 0, 0))
         
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)
@@ -260,6 +290,14 @@ async def check_wifi():
             display.text(ip_address, 16, 56, 1)
             # Synchronize with NTP server to get current time
             ntptime.settime()
+            # Connect to MQTT broker
+            try:
+                mqtt_client.connect()
+                # Subscribe to topics for light control
+                mqtt_client.subscribe(b"homeassistant/light/esp32c3demo1234/set")
+                print("MQTT Broker connected.")
+            except OSError:
+                print("MQTT Connection Error: check broker or configuration.")
         else:
             if last_state != current_state:
                 print("Waiting for WiFi Connection")

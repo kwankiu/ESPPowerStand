@@ -9,6 +9,7 @@ import ssd1306
 import uasyncio as asyncio
 from umqtt.simple import MQTTClient
 import network
+import ubinascii
 
 # Read MQTT settings from config.json
 try:
@@ -18,10 +19,30 @@ try:
         MQTT_PORT = config["mqtt_port"]
         MQTT_USER = config["mqtt_user"]
         MQTT_PASSWORD = config["mqtt_password"]
-        MQTT_CLIENT_ID = config["mqtt_client_id"]
 except OSError:
     print("Missing or incorrect configuration in config.json")
     
+# Generate a unique ID from MAC address
+MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac')).decode().replace(":", "")
+UNIQUE_ID = "1us" + MAC_ADDRESS # suffix + MAC_ADDRESS
+print("Device ID: "+UNIQUE_ID)
+
+# Define MQTT Topic Path
+MQTT_CONFIG_TOPIC="homeassistant/light/" + UNIQUE_ID + "/config"
+MQTT_STATE_TOPIC="homeassistant/light/" + UNIQUE_ID + "/status"
+MQTT_SET_TOPIC="homeassistant/light/" + UNIQUE_ID + "/set"
+
+# Device properties
+device_properties = {
+    "name": "1us RGB Light",
+    "unique_id": UNIQUE_ID,
+    "state_topic": MQTT_STATE_TOPIC,
+    "command_topic": MQTT_SET_TOPIC,
+}
+
+# Convert to JSON
+device_json = ujson.dumps(device_properties)
+
 # Using default address 0x3C
 i2c = SoftI2C(sda=Pin(1), scl=Pin(0))
 display = ssd1306.SSD1306_I2C(128, 64, i2c)
@@ -41,15 +62,17 @@ neopixel_speed="10"
 # MQTT callback function
 def mqtt_callback(topic, msg):
     global neopixel_mode # Declare neopixel_mode as a global variable
-    if topic == b"homeassistant/light/esp32c3demo1234/set":
+    if topic == (MQTT_SET_TOPIC).encode():
         if msg == b"ON":
             print("Light ON")
             neopixel_mode="rainbow"
         elif msg == b"OFF":
             print("Light OFF")
             neopixel_mode="off"
+        else:
+            print(msg)
             
-mqtt_client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
+mqtt_client = MQTTClient(UNIQUE_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
 mqtt_client.set_callback(mqtt_callback)
 
 month_names = {
@@ -249,6 +272,7 @@ async def main():
         await asyncio.sleep_ms(0)
 
 async def run_neopixel():
+    last_neopixel=None
     while True:
         if neopixel_mode == "rainbow":
             # Rainbow wave effect
@@ -284,6 +308,22 @@ async def run_neopixel():
             display.text('Light Off', 30, 0, 1)
             static_color((0, 0, 0))  # Turn off the RGB light
         
+        if last_neopixel != neopixel_mode:
+            print("Neopixel Mode Updated")
+            
+            # Device state
+            device_state = {
+                "state": "ON",
+                "color_mode": neopixel_mode,
+            }
+
+            # Convert to JSON
+            #state_json = ujson.dumps(device_state)
+            if neopixel_mode == "off":
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
+            else:
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
+            last_neopixel=neopixel_mode
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)
 
@@ -303,7 +343,12 @@ async def check_wifi():
                 # Connect to MQTT broker
                 mqtt_client.connect()
                 # Subscribe to topics for light control
-                mqtt_client.subscribe(b"homeassistant/light/esp32c3demo1234/set")
+                mqtt_client.subscribe((MQTT_CONFIG_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_STATE_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_SET_TOPIC).encode())
+                
+                # Publish Config for Auto Discovery
+                mqtt_client.publish((MQTT_CONFIG_TOPIC).encode(), device_json, retain=True)
                 print("MQTT Broker connected.")
             ip_address = wifi.ifconfig()[0]
             display.text(ip_address, 16, 56, 1)

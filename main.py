@@ -319,10 +319,13 @@ async def run_neopixel():
 
             # Convert to JSON
             #state_json = ujson.dumps(device_state)
-            if neopixel_mode == "off":
-                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
-            else:
-                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
+            try:
+                if neopixel_mode == "off":
+                    mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
+                else:
+                    mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
+            except:
+                pass
             last_neopixel=neopixel_mode
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)

@@ -34,6 +34,10 @@ np = NeoPixel(pin, num_pixels)
 rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
 
+neopixel_mode="off"
+neopixel_brightness="1.0"
+neopixel_speed="10"
+
 # MQTT callback function
 def mqtt_callback(topic, msg):
     if topic == b"homeassistant/light/esp32c3demo1234/set":
@@ -243,34 +247,39 @@ async def main():
 
 async def run_neopixel():
     while True:
-        # Rainbow wave effect
-        display.text('Rainbow', 36, 0, 1)
-        await rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
-        
-        # Color breathing effect (e.g., breathing white)
-        #display.text('Breathing', 30, 0, 1)
-        #await color_breathing((255, 255, 255), 2000)  # Adjust the color and duration as needed
-        
-        # Random color flashes
-        #display.text('Flashing', 32, 0, 1)
-        #await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
-        
-        # Static color effect (e.g., static blue)
-        #display.text('Static', 40, 0, 1)
-        #static_color((0, 0, 255))  # Adjust the static color as needed
-        
-        
-        # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
-        #display.text('Watercolor', 26, 0, 1)
-        #await watercolor_rainbow_cycle(5, 1)  # Adjust the value to control the speed of the watercolor rainbow cycle
-        
-        # Random effect (randomly loop among all color effects)
-        #display.text('Random', 40, 0, 1)
-        #await Coming Soon
-        
-        # Lights off (turn off the rgb light)
-        #display.text('Light Off', 30, 0, 1)
-        #static_color((0, 0, 0))
+        if neopixel_mode == "rainbow":
+            # Rainbow wave effect
+            display.text('Rainbow', 36, 0, 1)
+            await rainbow_cycle(10)  # Adjust the value to control the speed of the rainbow wave
+        elif neopixel_mode == "breathing":
+            # Color breathing effect (e.g., breathing white)
+            display.text('Breathing', 30, 0, 1)
+            await color_breathing((255, 255, 255), 2000)  # Adjust the color and duration as needed
+        elif neopixel_mode == "flashing":
+            # Random color flashes
+            display.text('Flashing', 32, 0, 1)
+            await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
+        elif neopixel_mode == "static":
+            # Static color effect (e.g., static blue)
+            display.text('Static', 40, 0, 1)
+            static_color((0, 0, 255))  # Adjust the static color as needed
+        elif neopixel_mode == "watercolor":
+            # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
+            display.text('Watercolor', 26, 0, 1)
+            await watercolor_rainbow_cycle(5, 1)  # Adjust the value to control the speed of the watercolor rainbow cycle
+        elif neopixel_mode == "random":
+            # Random effect (randomly loop among all color effects)
+            display.text('Random', 40, 0, 1)
+            # Implement random effect (Coming Soon)
+        elif neopixel_mode == "off":
+            # Lights off (turn off the rgb light)
+            display.text('Light Off', 30, 0, 1)
+            static_color((0, 0, 0))  # Turn off the RGB light
+        else:
+            print("Unknown neopixel_mode:", neopixel_mode)
+            # Lights off (turn off the rgb light)
+            display.text('Light Off', 30, 0, 1)
+            static_color((0, 0, 0))  # Turn off the RGB light
         
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)

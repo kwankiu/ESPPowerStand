@@ -73,7 +73,7 @@ def mqtt_callback(topic, msg):
             neopixel_mode="rainbow"
         elif msg == b"OFF":
             print("Light OFF")
-            neopixel_brightness=0.0
+            neopixel_mode="off"
     elif topic == (MQTT_BRIGHTNESS_TOPIC).encode():
         neopixel_brightness = int(msg.decode()) / 100.0
         print("Adjust brightness to ", neopixel_brightness*100)
@@ -296,7 +296,7 @@ async def run_neopixel():
             #display.text('Random', 40, 0, 1)
             # Implement random effect (Coming Soon)
 
-        if neopixel_brightness <= 0.0:
+        if neopixel_brightness <= 0.0 or neopixel_mode == "off":
             # Lights off (turn off the rgb light)
             display.text('Light Off', 30, 0, 1)
             static_color((0, 0, 0))  # Turn off the RGB light

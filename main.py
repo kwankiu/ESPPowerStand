@@ -56,8 +56,8 @@ rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
 
 neopixel_mode="rainbow"
-neopixel_brightness="1.0"
-neopixel_speed="10"
+neopixel_brightness=1.0
+neopixel_speed=10
 
 # MQTT callback function
 def mqtt_callback(topic, msg):
@@ -134,36 +134,36 @@ def random_color():
 
 # Color Effects
 
-def static_color(color, brightness=1.0):
-    np.fill(scale_brightness(color, brightness))
+def static_color(color):
+    np.fill(scale_brightness(color, neopixel_brightness))
     np.write()
 
-async def color_breathing(color, duration, brightness=1.0, steps=100):
+async def color_breathing(color, duration, steps=100):
     r, g, b = color
     for step in range(steps):
-        brightness_value = int(brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
+        brightness_value = int(neopixel_brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
         np.fill(scale_brightness((r, g, b), brightness_value / 255))
         np.write()
         await asyncio.sleep_ms(duration // steps)
 
-async def random_flash(num_flashes, flash_duration, delay, brightness=1.0):
+async def random_flash(num_flashes, flash_duration, delay):
     for _ in range(num_flashes):
-        np.fill(scale_brightness(random_color(), brightness))
+        np.fill(scale_brightness(random_color(), neopixel_brightness))
         np.write()
         await asyncio.sleep_ms(flash_duration)
         np.fill((0, 0, 0))  # Turn off the lights
         np.write()
         await asyncio.sleep_ms(delay)
 
-async def rainbow_cycle(wait, brightness=1.0):
+async def rainbow_cycle(wait):
     for j in range(255):
         for i in range(num_pixels):
             pixel_index = (i * 256 // num_pixels) + j
-            np[i] = scale_brightness(wheel(pixel_index & 255), brightness)
+            np[i] = scale_brightness(wheel(pixel_index & 255), neopixel_brightness)
         np.write()
         await asyncio.sleep_ms(wait)
 
-async def watercolor_rainbow_cycle(wait, brightness=1.0):
+async def watercolor_rainbow_cycle(wait):
     # Define a list of the Watercolors (CMYK)
     colors = [
         (255, 255, 255),
@@ -192,7 +192,7 @@ async def watercolor_rainbow_cycle(wait, brightness=1.0):
             interpolated_color = interpolate_color(colors[color_index], colors[(color_index + 1) % num_colors], ratio)
 
             # Scale the brightness of the interpolated color
-            interpolated_color = scale_brightness(interpolated_color, brightness)
+            interpolated_color = scale_brightness(interpolated_color, neopixel_brightness)
 
             np[i] = interpolated_color
 
@@ -301,7 +301,7 @@ async def run_neopixel():
         elif neopixel_mode == "watercolor":
             # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
             display.text('Watercolor', 26, 0, 1)
-            await watercolor_rainbow_cycle(5, 1)  # Adjust the value to control the speed of the watercolor rainbow cycle
+            await watercolor_rainbow_cycle(5)  # Adjust the value to control the speed of the watercolor rainbow cycle
         elif neopixel_mode == "random":
             # Random effect (randomly loop among all color effects)
             display.text('Random', 40, 0, 1)

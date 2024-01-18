@@ -31,6 +31,7 @@ print("Device ID: "+UNIQUE_ID)
 MQTT_CONFIG_TOPIC="homeassistant/light/" + UNIQUE_ID + "/config"
 MQTT_STATE_TOPIC="homeassistant/light/" + UNIQUE_ID + "/status"
 MQTT_SET_TOPIC="homeassistant/light/" + UNIQUE_ID + "/set"
+MQTT_BRIGHTNESS_TOPIC="homeassistant/light/" + UNIQUE_ID + "/brightness"
 
 # Device properties
 device_properties = {
@@ -38,6 +39,9 @@ device_properties = {
     "unique_id": UNIQUE_ID,
     "state_topic": MQTT_STATE_TOPIC,
     "command_topic": MQTT_SET_TOPIC,
+    "command_topic": MQTT_SET_TOPIC,
+    "brightness_command_topic": MQTT_BRIGHTNESS_TOPIC,
+    "brightness_scale": 100,
 }
 
 # Convert to JSON
@@ -61,7 +65,8 @@ neopixel_speed=10
 
 # MQTT callback function
 def mqtt_callback(topic, msg):
-    global neopixel_mode # Declare neopixel_mode as a global variable
+    global neopixel_mode # Declare as a global variable
+    global neopixel_brightness # Declare as a global variable
     if topic == (MQTT_SET_TOPIC).encode():
         if msg == b"ON":
             print("Light ON")
@@ -69,8 +74,12 @@ def mqtt_callback(topic, msg):
         elif msg == b"OFF":
             print("Light OFF")
             neopixel_mode="off"
-        else:
-            print(msg)
+    elif topic == (MQTT_BRIGHTNESS_TOPIC).encode():
+        neopixel_brightness = int(msg.decode()) / 100.0
+        print("Adjust brightness to ", neopixel_brightness*100)
+    else:
+        print("Received message on topic:", topic.decode())
+        print("Message:", msg.decode())
             
 mqtt_client = MQTTClient(UNIQUE_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
 mqtt_client.set_callback(mqtt_callback)
@@ -357,6 +366,7 @@ async def check_wifi():
                 mqtt_client.subscribe((MQTT_CONFIG_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_STATE_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_SET_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_BRIGHTNESS_TOPIC).encode())
                 
                 # Publish Config for Auto Discovery
                 mqtt_client.publish((MQTT_CONFIG_TOPIC).encode(), device_json, retain=True)

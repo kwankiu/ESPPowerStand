@@ -90,6 +90,9 @@ month_names = {
     12: 'Dec',
 }
 
+# Neopixel Functions
+
+# Helper Functions
 def wheel(pos):
     # Input a value 0 to 255 to get a color value.
     # The colors are a transition from red to green to blue and back to red.
@@ -101,38 +104,6 @@ def wheel(pos):
     else:
         pos -= 170
         return (0, int(pos * 3), int(255 - pos * 3))
-
-async def rainbow_cycle(wait, brightness=1.0):
-    for j in range(255):
-        for i in range(num_pixels):
-            pixel_index = (i * 256 // num_pixels) + j
-            np[i] = scale_brightness(wheel(pixel_index & 255), brightness)
-        np.write()
-        await asyncio.sleep_ms(wait)
-
-async def color_breathing(color, duration, brightness=1.0, steps=100):
-    r, g, b = color
-    for step in range(steps):
-        brightness_value = int(brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
-        np.fill(scale_brightness((r, g, b), brightness_value / 255))
-        np.write()
-        await asyncio.sleep_ms(duration // steps)
-
-async def random_flash(num_flashes, flash_duration, delay, brightness=1.0):
-    for _ in range(num_flashes):
-        np.fill(scale_brightness(random_color(), brightness))
-        np.write()
-        await asyncio.sleep_ms(flash_duration)
-        np.fill((0, 0, 0))  # Turn off the lights
-        np.write()
-        await asyncio.sleep_ms(delay)
-
-def static_color(color, brightness=1.0):
-    np.fill(scale_brightness(color, brightness))
-    np.write()
-
-def random_color():
-    return (urandom.randint(0, 255), urandom.randint(0, 255), urandom.randint(0, 255))
 
 def scale_brightness(color, brightness):
     return (
@@ -157,6 +128,40 @@ def repeat_colors(colors, factor):
             repeated_colors.append(color)
     
     return repeated_colors
+
+def random_color():
+    return (urandom.randint(0, 255), urandom.randint(0, 255), urandom.randint(0, 255))
+
+# Color Effects
+
+def static_color(color, brightness=1.0):
+    np.fill(scale_brightness(color, brightness))
+    np.write()
+
+async def color_breathing(color, duration, brightness=1.0, steps=100):
+    r, g, b = color
+    for step in range(steps):
+        brightness_value = int(brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
+        np.fill(scale_brightness((r, g, b), brightness_value / 255))
+        np.write()
+        await asyncio.sleep_ms(duration // steps)
+
+async def random_flash(num_flashes, flash_duration, delay, brightness=1.0):
+    for _ in range(num_flashes):
+        np.fill(scale_brightness(random_color(), brightness))
+        np.write()
+        await asyncio.sleep_ms(flash_duration)
+        np.fill((0, 0, 0))  # Turn off the lights
+        np.write()
+        await asyncio.sleep_ms(delay)
+
+async def rainbow_cycle(wait, brightness=1.0):
+    for j in range(255):
+        for i in range(num_pixels):
+            pixel_index = (i * 256 // num_pixels) + j
+            np[i] = scale_brightness(wheel(pixel_index & 255), brightness)
+        np.write()
+        await asyncio.sleep_ms(wait)
 
 async def watercolor_rainbow_cycle(wait, brightness=1.0):
     # Define a list of the Watercolors (CMYK)
@@ -194,6 +199,7 @@ async def watercolor_rainbow_cycle(wait, brightness=1.0):
         np.write()
         await asyncio.sleep_ms(wait * 10)
 
+# Sync Network Clock
 async def get_world_time():
     try:
         response = await requests.get("http://worldtimeapi.org/api/ip")
@@ -203,7 +209,7 @@ async def get_world_time():
         print("Error fetching time:", e)
         return None
     
-# Define a function to parse the datetime string
+# Helper function to parse the datetime string
 def parse_datetime(datetime_str):
     year = int(datetime_str[0:4])
     month = int(datetime_str[5:7])
@@ -214,8 +220,7 @@ def parse_datetime(datetime_str):
 
     return (year, month, day, hour, minute, second, 0, 0)
     
-# Setup
-
+# Initial Splash Screen
 display.fill(1)
 display.fill_rect(4, 4, 32, 32, 0)
 display.fill_rect(4, 8, 24, 16, 1)
@@ -274,6 +279,9 @@ async def main():
 async def run_neopixel():
     last_neopixel=None
     while True:
+        # Clear the previous text on the display
+        display.fill_rect(24, 0, 80, 8, 0)
+        
         if neopixel_mode == "rainbow":
             # Rainbow wave effect
             display.text('Rainbow', 36, 0, 1)

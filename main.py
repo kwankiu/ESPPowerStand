@@ -82,14 +82,15 @@ np = NeoPixel(pin, num_pixels)
 rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
 
+# Global variables for neopixel
 neopixel_mode="rainbow"
 neopixel_brightness=1.0
 neopixel_speed=10
 neopixel_rgb="255,255,255"
-
-# MQTT callback function
+last_neopixel=None
 last_brightness=None
 
+# MQTT callback function
 def mqtt_callback(topic, msg):
     global neopixel_mode, neopixel_brightness, neopixel_rgb, last_brightness  # Declare multiple global variables in one line
     current_payload = msg.decode()
@@ -189,6 +190,9 @@ async def color_breathing(duration, steps=100):
         color_values = [int(value) for value in neopixel_rgb.split(",")]
         np.fill(scale_brightness(color_values, brightness_value / 255))
         np.write()
+        # Break the function for real time neopixel mode switch
+        if last_neopixel != neopixel_mode:
+            break  # Break out of the inner loop   
         await asyncio.sleep_ms(duration // steps)
 
 async def color_flash(num_flashes, flash_duration, delay):
@@ -196,26 +200,45 @@ async def color_flash(num_flashes, flash_duration, delay):
         color_values = [int(value) for value in neopixel_rgb.split(",")]
         np.fill(scale_brightness(color_values, neopixel_brightness))
         np.write()
+        # Break the function for real time neopixel mode switch
+        if last_neopixel != neopixel_mode:
+            break  # Break out of the inner loop   
         await asyncio.sleep_ms(flash_duration)
         np.fill((0, 0, 0))  # Turn off the lights
         np.write()
+        # Break the function for real time neopixel mode switch
+        if last_neopixel != neopixel_mode:
+            break  # Break out of the inner loop   
         await asyncio.sleep_ms(delay)
 
 async def random_flash(num_flashes, flash_duration, delay):
     for _ in range(num_flashes):
         np.fill(scale_brightness(random_color(), neopixel_brightness))
         np.write()
+        # Break the function for real time neopixel mode switch
+        if last_neopixel != neopixel_mode:
+            break  # Break out of the inner loop   
         await asyncio.sleep_ms(flash_duration)
         np.fill((0, 0, 0))  # Turn off the lights
         np.write()
+        # Break the function for real time neopixel mode switch
+        if last_neopixel != neopixel_mode:
+            break  # Break out of the inner loop   
         await asyncio.sleep_ms(delay)
 
 async def rainbow_cycle(wait):
+    flag_break = False  # Flag to indicate if we should break out of loops
     for j in range(255):
         for i in range(num_pixels):
             pixel_index = (i * 256 // num_pixels) + j
             np[i] = scale_brightness(wheel(pixel_index & 255), neopixel_brightness)
+            # Break the function for real time neopixel mode switch
+            if last_neopixel != neopixel_mode:
+                flag_break = True  # Set the flag to break out of loops
+                break  # Break out of the inner loop                
         np.write()
+        if flag_break:
+            break  # Break out of the outer loop
         await asyncio.sleep_ms(wait)
 
 async def watercolor_rainbow_cycle(wait):
@@ -229,8 +252,8 @@ async def watercolor_rainbow_cycle(wait):
         (255, 255, 0),
     ]
 
+    flag_break = False  # Flag to indicate if we should break out of loops
     colors = repeat_colors(colors, 6)
-
     num_colors = len(colors)
 
     for j in range(-num_pixels * 2, num_pixels * 2):
@@ -251,7 +274,14 @@ async def watercolor_rainbow_cycle(wait):
 
             np[i] = interpolated_color
 
+            # Break the function for real time neopixel mode switch
+            if last_neopixel != neopixel_mode:
+                flag_break = True  # Set the flag to break out of loops
+                break  # Break out of the inner loop   
+
         np.write()
+        if flag_break:
+            break  # Break out of the outer loop
         await asyncio.sleep_ms(wait * 10)
 
 # Sync Network Clock
@@ -334,8 +364,9 @@ async def mqtt_message_checker():
             pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
         await asyncio.sleep_ms(0)  # Adjust the sleep time as needed
 
+# Neopixel loop
 async def run_neopixel():
-    last_neopixel=None
+    global last_neopixel
     while True:
         # Clear the previous text on the display
         display.fill_rect(24, 0, 80, 8, 0)

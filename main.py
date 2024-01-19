@@ -85,29 +85,34 @@ wifi = network.WLAN(network.STA_IF)
 neopixel_mode="rainbow"
 neopixel_brightness=1.0
 neopixel_speed=10
+neopixel_rgb="255,255,255"
 
 # MQTT callback function
+last_brightness=None
+
 def mqtt_callback(topic, msg):
-    global neopixel_mode  # Declare as a global variable
-    global neopixel_brightness  # Declare as a global variable
+    global neopixel_mode, neopixel_brightness, neopixel_rgb, last_brightness  # Declare multiple global variables in one line
     current_payload = msg.decode()
 
     if topic == (MQTT_SET_TOPIC).encode() and current_payload == "ON":
-        if neopixel_mode == "off":
+        if neopixel_brightness <= 0.0:
+            neopixel_brightness = last_brightness
             print("Light ON")
-            neopixel_mode = "rainbow"
     elif topic == (MQTT_SET_TOPIC).encode() and current_payload == "OFF":
         print("Light OFF")
-        neopixel_mode = "off"
+        last_brightness = neopixel_brightness
+        neopixel_brightness = 0.0
     elif topic == (MQTT_BRIGHTNESS_TOPIC).encode():
         neopixel_brightness = int(current_payload) / 100.0
-        print("Adjust brightness to ", neopixel_brightness * 100)
+        print("Adjust brightness to", neopixel_brightness * 100)
     elif topic == (MQTT_EFFECT_TOPIC).encode():
         neopixel_mode = current_payload
-        print("Change Neopixel Mode to ", neopixel_mode)
+        print("Change Neopixel Mode to", neopixel_mode)
     elif topic == (MQTT_RGB_TOPIC).encode():
-        neopixel_mode = "static"
-        print("Set Color to ", current_payload)
+        if neopixel_mode == "rainbow" or neopixel_mode == "watercolor":
+            neopixel_mode = "static"
+        neopixel_rgb = current_payload
+        print("Set Color to", neopixel_rgb)
     elif topic != (MQTT_STATE_TOPIC).encode() and topic != (MQTT_CONFIG_TOPIC).encode():
         print("Received unprocessed message on topic:", topic.decode())
         print("Message:", current_payload)
@@ -330,7 +335,7 @@ async def run_neopixel():
             #display.text('Random', 40, 0, 1)
             # Implement random effect (Coming Soon)
 
-        if neopixel_brightness <= 0.0 or neopixel_mode == "off":
+        if neopixel_brightness <= 0.0:
             # Lights off (turn off the rgb light)
             display.text('Light Off', 30, 0, 1)
             static_color((0, 0, 0))  # Turn off the RGB light
@@ -342,15 +347,17 @@ async def run_neopixel():
             elif neopixel_mode == "breathing":
                 # Color breathing effect (e.g., breathing white)
                 display.text('Breathing', 30, 0, 1)
-                await color_breathing((255, 255, 255), 2000)  # Adjust the color and duration as needed
+                color_values = [int(value) for value in neopixel_rgb.split(",")]
+                await color_breathing(color_values, 2000)  # Adjust the color and duration as needed
             elif neopixel_mode == "flashing":
                 # Random color flashes
                 display.text('Flashing', 32, 0, 1)
                 await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
             elif neopixel_mode == "static":
-                # Static color effect (e.g., static blue)
+                # Static color effect
                 display.text('Static', 40, 0, 1)
-                static_color((0, 0, 255))  # Adjust the static color as needed
+                color_values = [int(value) for value in neopixel_rgb.split(",")]
+                static_color(color_values)
             elif neopixel_mode == "watercolor":
                 # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
                 display.text('Watercolor', 26, 0, 1)

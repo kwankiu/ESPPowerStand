@@ -13,7 +13,7 @@ try:
     wifi_ssid = config["wifi_ssid"]
     wifi_password = config["wifi_password"]
 except OSError:
-    print("Missing or incorrect configuration in config.json")
+    print("Missing or incorrect WiFi configuration in config.json")
 
 wifi = network.WLAN(network.STA_IF)
 wifi.active(True)

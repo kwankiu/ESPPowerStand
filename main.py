@@ -20,7 +20,17 @@ try:
         MQTT_USER = config["mqtt_user"]
         MQTT_PASSWORD = config["mqtt_password"]
 except OSError:
-    print("Missing or incorrect configuration in config.json")
+    print("Missing or incorrect MQTT settings in config.json")
+
+# Read Device configuarations from config.json
+try:
+    with open("config.json", "r") as config_file:
+        config = ujson.load(config_file)
+        devices_config = config["devices"]
+        DEVICE_NAME = devices_config["name"]
+        DEVICE_TYPE = devices_config["type"]
+except OSError:
+    print("Missing or incorrect Device configuration in config.json")    
     
 # Generate a unique ID from MAC address
 MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac')).decode().replace(":", "")
@@ -28,14 +38,14 @@ UNIQUE_ID = "1us" + MAC_ADDRESS # suffix + MAC_ADDRESS
 print("Device ID: "+UNIQUE_ID)
 
 # Define MQTT Topic Path
-MQTT_CONFIG_TOPIC="homeassistant/light/" + UNIQUE_ID + "/config"
-MQTT_STATE_TOPIC="homeassistant/light/" + UNIQUE_ID + "/status"
-MQTT_SET_TOPIC="homeassistant/light/" + UNIQUE_ID + "/set"
-MQTT_BRIGHTNESS_TOPIC="homeassistant/light/" + UNIQUE_ID + "/brightness"
+MQTT_CONFIG_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/config"
+MQTT_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/status"
+MQTT_SET_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/set"
+MQTT_BRIGHTNESS_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightness"
 
 # Device properties
 device_properties = {
-    "name": "1us RGB Light",
+    "name": DEVICE_NAME,
     "unique_id": UNIQUE_ID,
     "state_topic": MQTT_STATE_TOPIC,
     "command_topic": MQTT_SET_TOPIC,

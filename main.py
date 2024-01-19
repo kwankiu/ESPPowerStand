@@ -404,7 +404,7 @@ async def run_neopixel():
                 await watercolor_rainbow_cycle(5)  # Adjust the value to control the speed of the watercolor rainbow cycle
             elif neopixel_mode == "random flash":
                 # Random color flashes
-                display.text('Random Flash', 24, 0, 1)
+                display.text('R.Flashing', 25, 0, 1)
                 await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
         
         if last_neopixel != neopixel_mode:

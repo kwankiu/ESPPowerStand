@@ -64,7 +64,7 @@ device_properties = {
     "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
     "effect_command_topic": MQTT_EFFECT_TOPIC,
     "effect_state_topic": MQTT_EFFECT_STATE_TOPIC,
-    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor"],
+    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor", "random flash"],
 }
 
 # Convert to JSON
@@ -183,13 +183,23 @@ def static_color(color):
     np.fill(scale_brightness(color, neopixel_brightness))
     np.write()
 
-async def color_breathing(color, duration, steps=100):
-    r, g, b = color
+async def color_breathing(duration, steps=100):
     for step in range(steps):
         brightness_value = int(neopixel_brightness * 0.5 * (1 + math.sin(2 * math.pi * step / steps)) * 255)
-        np.fill(scale_brightness((r, g, b), brightness_value / 255))
+        color_values = [int(value) for value in neopixel_rgb.split(",")]
+        np.fill(scale_brightness(color_values, brightness_value / 255))
         np.write()
         await asyncio.sleep_ms(duration // steps)
+
+async def color_flash(num_flashes, flash_duration, delay):
+    for _ in range(num_flashes):
+        color_values = [int(value) for value in neopixel_rgb.split(",")]
+        np.fill(scale_brightness(color_values, neopixel_brightness))
+        np.write()
+        await asyncio.sleep_ms(flash_duration)
+        np.fill((0, 0, 0))  # Turn off the lights
+        np.write()
+        await asyncio.sleep_ms(delay)
 
 async def random_flash(num_flashes, flash_duration, delay):
     for _ in range(num_flashes):
@@ -347,12 +357,11 @@ async def run_neopixel():
             elif neopixel_mode == "breathing":
                 # Color breathing effect (e.g., breathing white)
                 display.text('Breathing', 30, 0, 1)
-                color_values = [int(value) for value in neopixel_rgb.split(",")]
-                await color_breathing(color_values, 2000)  # Adjust the color and duration as needed
+                await color_breathing(2000)  # Adjust the duration as needed
             elif neopixel_mode == "flashing":
                 # Random color flashes
                 display.text('Flashing', 32, 0, 1)
-                await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
+                await color_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
             elif neopixel_mode == "static":
                 # Static color effect
                 display.text('Static', 40, 0, 1)
@@ -362,6 +371,10 @@ async def run_neopixel():
                 # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
                 display.text('Watercolor', 26, 0, 1)
                 await watercolor_rainbow_cycle(5)  # Adjust the value to control the speed of the watercolor rainbow cycle
+            elif neopixel_mode == "random flash":
+                # Random color flashes
+                display.text('Random Flash', 24, 0, 1)
+                await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
         
         if last_neopixel != neopixel_mode:
             #print("Neopixel Mode Updated")

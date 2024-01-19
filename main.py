@@ -41,7 +41,15 @@ print("Device ID: "+UNIQUE_ID)
 MQTT_CONFIG_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/config"
 MQTT_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/status"
 MQTT_SET_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/set"
+
 MQTT_BRIGHTNESS_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightness"
+MQTT_BRIGHTNESS_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightnessstatus"
+
+MQTT_RGB_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgb"
+MQTT_RGB_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgbstatus"
+
+MQTT_EFFECT_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/effect"
+MQTT_EFFECT_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/effectstatus"
 
 # Device properties
 device_properties = {
@@ -49,9 +57,14 @@ device_properties = {
     "unique_id": UNIQUE_ID,
     "state_topic": MQTT_STATE_TOPIC,
     "command_topic": MQTT_SET_TOPIC,
-    "command_topic": MQTT_SET_TOPIC,
     "brightness_command_topic": MQTT_BRIGHTNESS_TOPIC,
+    "brightness_state_topic": MQTT_BRIGHTNESS_STATE_TOPIC,
     "brightness_scale": 100,
+    "rgb_command_topic": MQTT_RGB_TOPIC,
+    "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
+    "effect_command_topic": MQTT_EFFECT_TOPIC,
+    "effect_state_topic": MQTT_EFFECT_STATE_TOPIC,
+    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor"],
 }
 
 # Convert to JSON
@@ -89,6 +102,12 @@ def mqtt_callback(topic, msg):
     elif topic == (MQTT_BRIGHTNESS_TOPIC).encode():
         neopixel_brightness = int(current_payload) / 100.0
         print("Adjust brightness to ", neopixel_brightness * 100)
+    elif topic == (MQTT_EFFECT_TOPIC).encode():
+        neopixel_mode = current_payload
+        print("Change Neopixel Mode to ", neopixel_mode)
+    elif topic == (MQTT_RGB_TOPIC).encode():
+        neopixel_mode = "static"
+        print("Set Color to ", current_payload)
     elif topic != (MQTT_STATE_TOPIC).encode() and topic != (MQTT_CONFIG_TOPIC).encode():
         print("Received unprocessed message on topic:", topic.decode())
         print("Message:", current_payload)
@@ -366,12 +385,17 @@ async def check_wifi():
                 ntptime.settime()
                 # Connect to MQTT broker
                 mqtt_client.connect()
-                # Subscribe to topics for light control
+                # Subscribe to topics for basic control
                 mqtt_client.subscribe((MQTT_CONFIG_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_STATE_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_SET_TOPIC).encode())
+                # Subscribe to topics for rgb light control
                 mqtt_client.subscribe((MQTT_BRIGHTNESS_TOPIC).encode())
-                
+                mqtt_client.subscribe((MQTT_BRIGHTNESS_STATE_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_RGB_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_RGB_STATE_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_EFFECT_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_EFFECT_STATE_TOPIC).encode())
                 # Publish Config for Auto Discovery
                 mqtt_client.publish((MQTT_CONFIG_TOPIC).encode(), device_json, retain=True)
                 print("MQTT Broker connected.")

@@ -65,21 +65,23 @@ neopixel_speed=10
 
 # MQTT callback function
 def mqtt_callback(topic, msg):
-    global neopixel_mode # Declare as a global variable
-    global neopixel_brightness # Declare as a global variable
-    if topic == (MQTT_SET_TOPIC).encode():
-        if msg == b"ON":
+    global neopixel_mode  # Declare as a global variable
+    global neopixel_brightness  # Declare as a global variable
+    current_payload = msg.decode()
+
+    if topic == (MQTT_SET_TOPIC).encode() and current_payload == "ON":
+        if neopixel_mode == "off":
             print("Light ON")
-            neopixel_mode="rainbow"
-        elif msg == b"OFF":
-            print("Light OFF")
-            neopixel_mode="off"
+            neopixel_mode = "rainbow"
+    elif topic == (MQTT_SET_TOPIC).encode() and current_payload == "OFF":
+        print("Light OFF")
+        neopixel_mode = "off"
     elif topic == (MQTT_BRIGHTNESS_TOPIC).encode():
-        neopixel_brightness = int(msg.decode()) / 100.0
-        print("Adjust brightness to ", neopixel_brightness*100)
-    else:
-        print("Received message on topic:", topic.decode())
-        print("Message:", msg.decode())
+        neopixel_brightness = int(current_payload) / 100.0
+        print("Adjust brightness to ", neopixel_brightness * 100)
+    elif topic != (MQTT_STATE_TOPIC).encode() and topic != (MQTT_CONFIG_TOPIC).encode():
+        print("Received unprocessed message on topic:", topic.decode())
+        print("Message:", current_payload)
             
 mqtt_client = MQTTClient(UNIQUE_ID, MQTT_BROKER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD)
 mqtt_client.set_callback(mqtt_callback)
@@ -244,12 +246,6 @@ display.fill(0)
 # Main loop
 async def main():
     while True:
-        
-        # Check Message
-        try:
-            mqtt_client.check_msg()
-        except:
-            pass
         # Fetch current time and date
         current_time = await get_world_time()
         #current_time = None
@@ -284,6 +280,15 @@ async def main():
         
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep_ms(0)
+
+# Separate loop for MQTT message checking
+async def mqtt_message_checker():
+    while True:
+        try:
+            mqtt_client.check_msg()
+        except:
+            pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+        await asyncio.sleep_ms(0)  # Adjust the sleep time as needed
 
 async def run_neopixel():
     last_neopixel=None
@@ -323,18 +328,10 @@ async def run_neopixel():
                 await watercolor_rainbow_cycle(5)  # Adjust the value to control the speed of the watercolor rainbow cycle
         
         if last_neopixel != neopixel_mode:
-            print("Neopixel Mode Updated")
+            #print("Neopixel Mode Updated")
             
-            # Device state
-            device_state = {
-                "state": "ON",
-                "color_mode": neopixel_mode,
-            }
-
-            # Convert to JSON
-            #state_json = ujson.dumps(device_state)
             try:
-                if neopixel_mode == "off":
+                if neopixel_brightness <= 0.0 or neopixel_mode == "off":
                     mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
                 else:
                     mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
@@ -382,6 +379,7 @@ async def check_wifi():
 loop = asyncio.get_event_loop()
 loop.create_task(run_neopixel())
 loop.create_task(check_wifi())
+loop.create_task(mqtt_message_checker())
 loop.create_task(main())
 
 # Run the event loop indefinitely

@@ -49,7 +49,6 @@ MQTT_BRIGHTNESS_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/bri
 MQTT_BRIGHTNESS_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightnessstatus"
 
 MQTT_COLORTEMP_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/colortemp"
-MQTT_COLORTEMP_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/colortempstatus"
 
 MQTT_RGB_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgb"
 MQTT_RGB_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgbstatus"
@@ -67,7 +66,6 @@ device_properties = {
     "brightness_state_topic": MQTT_BRIGHTNESS_STATE_TOPIC,
     "brightness_scale": 100,
     "color_temp_command_topic": MQTT_COLORTEMP_TOPIC,
-    "color_temp_state_topic": MQTT_COLORTEMP_STATE_TOPIC,
     "rgb_command_topic": MQTT_RGB_TOPIC,
     "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
     "effect_command_topic": MQTT_EFFECT_TOPIC,
@@ -550,7 +548,6 @@ async def check_wifi():
                 mqtt_client.subscribe((MQTT_BRIGHTNESS_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_BRIGHTNESS_STATE_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_COLORTEMP_TOPIC).encode())
-                mqtt_client.subscribe((MQTT_COLORTEMP_STATE_TOPIC).encode())
                 # Subscribe to topics for rgb and effect light control
                 mqtt_client.subscribe((MQTT_RGB_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_RGB_STATE_TOPIC).encode())

@@ -72,7 +72,7 @@ device_properties = {
     "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
     "effect_command_topic": MQTT_EFFECT_TOPIC,
     "effect_state_topic": MQTT_EFFECT_STATE_TOPIC,
-    "effect_list": ["static", "breathing", "flashing", "fading", "colorloop" "rainbow", "watercolor", "random_flash", "random_breath", "random_fade"],
+    "effect_list": ["static", "breathing", "flashing", "fading", "colorloop", "rainbow", "watercolor", "random_flash", "random_breath", "random_fade"],
 }
 
 # Convert to JSON
@@ -103,8 +103,13 @@ except KeyError:
     neopixel_brightness = 1.0
     devices_config["brightness"] = neopixel_brightness
 
+try:
+    neopixel_rgb = devices_config["rgb"]
+except KeyError:
+    neopixel_rgb = "255,255,255"
+    devices_config["rgb"] = neopixel_rgb
+
 neopixel_speed=10
-neopixel_rgb="255,255,255"
 last_neopixel=None
 last_brightness=None
 
@@ -576,6 +581,9 @@ async def save_config(file_path="config.json"):
             isChanged = True
         if devices_config["mode"] != neopixel_mode:
             devices_config["mode"] = neopixel_mode
+            isChanged = True
+        if devices_config["rgb"] != neopixel_rgb:
+            devices_config["rgb"] = neopixel_rgb
             isChanged = True
 
         if isChanged:

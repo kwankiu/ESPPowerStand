@@ -11,26 +11,29 @@ from umqtt.simple import MQTTClient
 import network
 import ubinascii
 
-# Read MQTT settings from config.json
+# Load config.json
 try:
     with open("config.json", "r") as config_file:
         config = ujson.load(config_file)
-        MQTT_BROKER = config["mqtt_broker"]
-        MQTT_PORT = config["mqtt_port"]
-        MQTT_USER = config["mqtt_user"]
-        MQTT_PASSWORD = config["mqtt_password"]
 except OSError:
-    print("Missing or incorrect MQTT settings in config.json")
+    print("Unable to load config.json, file may be missing")
 
-# Read Device configuarations from config.json
+# Read MQTT settings
 try:
-    with open("config.json", "r") as config_file:
-        config = ujson.load(config_file)
-        devices_config = config["devices"]
-        DEVICE_NAME = devices_config["name"]
-        DEVICE_TYPE = devices_config["type"]
-except OSError:
-    print("Missing or incorrect Device configuration in config.json")    
+    MQTT_BROKER = config["mqtt_broker"]
+    MQTT_PORT = config["mqtt_port"]
+    MQTT_USER = config["mqtt_user"]
+    MQTT_PASSWORD = config["mqtt_password"]
+except KeyError:
+    print("Missing or incorrect MQTT settings in config")
+
+# Read Device configuarations
+try:
+    devices_config = config["devices"]
+    DEVICE_NAME = devices_config["name"]
+    DEVICE_TYPE = devices_config["type"]
+except KeyError:
+    print("Missing or incorrect Device configuration in config")    
     
 # Generate a unique ID from MAC address
 MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac')).decode().replace(":", "")
@@ -69,7 +72,7 @@ device_properties = {
     "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
     "effect_command_topic": MQTT_EFFECT_TOPIC,
     "effect_state_topic": MQTT_EFFECT_STATE_TOPIC,
-    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor", "random_flash"],
+    "effect_list": ["static", "breathing", "flashing", "fading", "colorloop" "rainbow", "watercolor", "random_flash", "random_breath", "random_fade"],
 }
 
 # Convert to JSON
@@ -88,8 +91,18 @@ rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
 
 # Global variables for neopixel
-neopixel_mode="rainbow"
-neopixel_brightness=1.0
+try:
+    neopixel_mode = devices_config["mode"]
+except KeyError:
+    neopixel_mode = "rainbow"
+    devices_config["mode"] = neopixel_mode
+
+try:
+    neopixel_brightness = devices_config["brightness"]
+except KeyError:
+    neopixel_brightness = 1.0
+    devices_config["brightness"] = neopixel_brightness
+
 neopixel_speed=10
 neopixel_rgb="255,255,255"
 last_neopixel=None
@@ -527,12 +540,58 @@ async def check_wifi():
         last_state=current_state
         await asyncio.sleep_ms(500)
 
+async def save_config(file_path="config.json"):
+    global config  # Assume config is a global variable
+    global devices_config  # Assume devices_config is a global variable
+
+    while True:
+        isChanged = False
+
+        if devices_config["brightness"] != neopixel_brightness:
+            devices_config["brightness"] = neopixel_brightness
+            isChanged = True
+        if devices_config["mode"] != neopixel_mode:
+            devices_config["mode"] = neopixel_mode
+            isChanged = True
+
+        if isChanged:
+            # Update devices_config to config["devices"]
+            config["devices"] = devices_config
+
+            # Convert Python object to JSON-formatted string with manual indentation
+            json_string = ujson.dumps(config)
+            indented_json = ""
+            level = 0
+
+            for char in json_string:
+                if char in ('{', '['):
+                    level += 1
+                    indented_json += char + '\n' + ' ' * (level * 4)
+                elif char in ('}', ']'):
+                    level -= 1
+                    indented_json = indented_json.rstrip() + '\n' + ' ' * (level * 4) + char
+                elif char == ',':
+                    indented_json += char + '\n' + ' ' * (level * 4)
+                else:
+                    indented_json += char
+
+            # Save the updated config string to config.json
+            try:
+                with open(file_path, "w") as config_file:
+                    config_file.write(indented_json)
+            except OSError:
+                print("Unable to update config.json. Check file permissions or disk space.")
+
+        # Wait for 500 milliseconds before the next iteration
+        await asyncio.sleep_ms(500)
+
 # Start the WiFi checking task in the background
 loop = asyncio.get_event_loop()
 loop.create_task(run_neopixel())
 loop.create_task(check_wifi())
 loop.create_task(mqtt_message_checker())
 loop.create_task(mqtt_message_sender())
+loop.create_task(save_config())
 loop.create_task(main())
 
 # Run the event loop indefinitely

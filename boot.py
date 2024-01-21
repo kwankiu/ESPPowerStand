@@ -17,7 +17,7 @@ except OSError:
 
 wifi = network.WLAN(network.STA_IF)
 wifi.active(True)
-wifi.config(pm=wifi.PM_NONE)  # disable power management
+#wifi.config(pm=wifi.PM_NONE)  # disable power management (some device get better some may get worse)
 
 try:
     wifi.connect(wifi_ssid, wifi_password)

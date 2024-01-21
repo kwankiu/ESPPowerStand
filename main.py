@@ -45,6 +45,9 @@ MQTT_SET_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/set"
 MQTT_BRIGHTNESS_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightness"
 MQTT_BRIGHTNESS_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/brightnessstatus"
 
+MQTT_COLORTEMP_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/colortemp"
+MQTT_COLORTEMP_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/colortempstatus"
+
 MQTT_RGB_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgb"
 MQTT_RGB_STATE_TOPIC = "homeassistant/" + DEVICE_TYPE + "/" + UNIQUE_ID + "/rgbstatus"
 
@@ -60,11 +63,13 @@ device_properties = {
     "brightness_command_topic": MQTT_BRIGHTNESS_TOPIC,
     "brightness_state_topic": MQTT_BRIGHTNESS_STATE_TOPIC,
     "brightness_scale": 100,
+    "color_temp_command_topic": MQTT_COLORTEMP_TOPIC,
+    "color_temp_state_topic": MQTT_COLORTEMP_STATE_TOPIC,
     "rgb_command_topic": MQTT_RGB_TOPIC,
     "rgb_state_topic": MQTT_RGB_STATE_TOPIC,
     "effect_command_topic": MQTT_EFFECT_TOPIC,
     "effect_state_topic": MQTT_EFFECT_STATE_TOPIC,
-    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor", "random flash"],
+    "effect_list": ["static", "breathing", "flashing", "rainbow", "watercolor", "random_flash"],
 }
 
 # Convert to JSON
@@ -97,7 +102,10 @@ def mqtt_callback(topic, msg):
 
     if topic == (MQTT_SET_TOPIC).encode() and current_payload == "ON":
         if neopixel_brightness <= 0.0:
-            neopixel_brightness = last_brightness
+            if last_brightness <= 0.0:
+                neopixel_brightness = 100.0
+            else:
+                neopixel_brightness = last_brightness
             print("Light ON")
     elif topic == (MQTT_SET_TOPIC).encode() and current_payload == "OFF":
         print("Light OFF")
@@ -114,6 +122,11 @@ def mqtt_callback(topic, msg):
             neopixel_mode = "static"
         neopixel_rgb = current_payload
         print("Set Color to", neopixel_rgb)
+    elif topic == (MQTT_COLORTEMP_TOPIC).encode():
+        if neopixel_mode == "rainbow" or neopixel_mode == "watercolor":
+            neopixel_mode = "static"
+        print("Set Temperature to", current_payload)
+        neopixel_rgb = temp_to_rgb(int(current_payload))
     elif topic != (MQTT_STATE_TOPIC).encode() and topic != (MQTT_CONFIG_TOPIC).encode():
         print("Received unprocessed message on topic:", topic.decode())
         print("Message:", current_payload)
@@ -177,6 +190,52 @@ def repeat_colors(colors, factor):
 
 def random_color():
     return (urandom.randint(0, 255), urandom.randint(0, 255), urandom.randint(0, 255))
+
+def temp_to_rgb(color_temp, returnString=True):
+    #Convert color temperature to RGB.
+    #param color_temp: Color temperature in Kelvin or Mireds
+    #return: RGB tuple
+
+    if color_temp < 1000:
+        # Assuming it's in Mireds
+        kelvin = 1.0 / color_temp * 1e6
+    else:
+        # Assuming it's in Kelvin
+        kelvin = color_temp
+
+    temperature = kelvin / 100.0
+
+    # Calculate red
+    if temperature <= 66:
+        red = 255
+    else:
+        red = 329.698727446 * ((temperature - 60) ** -0.1332047592)
+
+    # Calculate green
+    if temperature <= 66:
+        green = 99.4708025861 * math.log(temperature) - 161.1195681661
+    else:
+        green = 288.1221695283 * ((temperature - 60) ** -0.0755148492)
+
+    # Calculate blue
+    if temperature >= 66:
+        blue = 255
+    elif temperature <= 19:
+        blue = 0
+    else:
+        blue = 138.5177312231 * math.log(temperature - 10) - 305.0447927307
+
+    rgb_values = (
+        min(int(max(0, red)), 255),
+        min(int(max(0, green)), 255),
+        min(int(max(0, blue)), 255)
+    )
+
+    if returnString:
+        rgb_string= "{},{},{}".format(*rgb_values)
+        return rgb_string
+    else:
+        return rgb_values
 
 # Color Effects
 
@@ -364,6 +423,19 @@ async def mqtt_message_checker():
             pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
         await asyncio.sleep_ms(0)  # Adjust the sleep time as needed
 
+# Separate loop for MQTT message sending
+async def mqtt_message_sender():
+    global neopixel_brightness, neopixel_mode, neopixel_rgb, neopixel_speed
+    while True:
+        try:
+            if neopixel_brightness <= 0.0 or neopixel_mode == "off":
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
+            else:
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
+        except:
+            pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+        await asyncio.sleep_ms(50)  # Adjust the sleep time as needed
+
 # Neopixel loop
 async def run_neopixel():
     global last_neopixel
@@ -402,22 +474,14 @@ async def run_neopixel():
                 # Watercolor rainbow cycle effect (Experimental, mostly working but not smooth enough like iCUE's)
                 display.text('Watercolor', 26, 0, 1)
                 await watercolor_rainbow_cycle(5)  # Adjust the value to control the speed of the watercolor rainbow cycle
-            elif neopixel_mode == "random flash":
+            elif neopixel_mode == "random_flash":
                 # Random color flashes
                 display.text('R.Flashing', 25, 0, 1)
                 await random_flash(5, 50, 500)  # Adjust the number of flashes, flash duration, and delay as needed
-        
-        if last_neopixel != neopixel_mode:
-            #print("Neopixel Mode Updated")
-            
-            try:
-                if neopixel_brightness <= 0.0 or neopixel_mode == "off":
-                    mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
-                else:
-                    mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
-            except:
-                pass
-            last_neopixel=neopixel_mode
+            else:
+                # Unknown Values
+                display.text('UnknownVal', 25, 0, 1)
+        last_neopixel=neopixel_mode
         # Allow other tasks to run by yielding control to the event loop
         await asyncio.sleep(0)
 
@@ -440,9 +504,12 @@ async def check_wifi():
                 mqtt_client.subscribe((MQTT_CONFIG_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_STATE_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_SET_TOPIC).encode())
-                # Subscribe to topics for rgb light control
+                # Subscribe to topics for color temp and brightness light control
                 mqtt_client.subscribe((MQTT_BRIGHTNESS_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_BRIGHTNESS_STATE_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_COLORTEMP_TOPIC).encode())
+                mqtt_client.subscribe((MQTT_COLORTEMP_STATE_TOPIC).encode())
+                # Subscribe to topics for rgb and effect light control
                 mqtt_client.subscribe((MQTT_RGB_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_RGB_STATE_TOPIC).encode())
                 mqtt_client.subscribe((MQTT_EFFECT_TOPIC).encode())
@@ -465,6 +532,7 @@ loop = asyncio.get_event_loop()
 loop.create_task(run_neopixel())
 loop.create_task(check_wifi())
 loop.create_task(mqtt_message_checker())
+loop.create_task(mqtt_message_sender())
 loop.create_task(main())
 
 # Run the event loop indefinitely

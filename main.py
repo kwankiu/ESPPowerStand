@@ -440,13 +440,24 @@ async def mqtt_message_checker():
 async def mqtt_message_sender():
     global neopixel_brightness, neopixel_mode, neopixel_rgb, neopixel_speed
     while True:
+
+        # ON / OFF State
         try:
-            if neopixel_brightness <= 0.0 or neopixel_mode == "off":
-                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF", retain=True)
+            if neopixel_brightness <= 0.0:
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"OFF")
             else:
-                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON", retain=True)
+                mqtt_client.publish((MQTT_STATE_TOPIC).encode(), b"ON")
         except:
             pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+
+        # Brightness State
+        try:
+            if neopixel_brightness > 0.0:
+                scaled_brightness = int(neopixel_brightness * 100)
+                mqtt_client.publish((MQTT_BRIGHTNESS_STATE_TOPIC).encode(), str(scaled_brightness).encode())
+        except:
+            pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+
         await asyncio.sleep_ms(50)  # Adjust the sleep time as needed
 
 # Neopixel loop

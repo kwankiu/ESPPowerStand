@@ -140,7 +140,7 @@ def mqtt_callback(topic, msg):
             neopixel_mode = "static"
         print("Set Temperature to", current_payload)
         neopixel_rgb = temp_to_rgb(int(current_payload))
-    elif topic != (MQTT_STATE_TOPIC).encode() and topic != (MQTT_CONFIG_TOPIC).encode():
+    elif topic != (MQTT_CONFIG_TOPIC).encode() and "status" not in topic.decode():
         print("Received unprocessed message on topic:", topic.decode())
         print("Message:", current_payload)
             
@@ -438,7 +438,7 @@ async def mqtt_message_checker():
 
 # Separate loop for MQTT message sending
 async def mqtt_message_sender():
-    global neopixel_brightness, neopixel_mode, neopixel_rgb, neopixel_speed
+    #global neopixel_brightness, neopixel_mode, neopixel_rgb, neopixel_speed
     while True:
 
         # ON / OFF State
@@ -450,15 +450,28 @@ async def mqtt_message_sender():
         except:
             pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
 
-        # Brightness State
-        try:
-            if neopixel_brightness > 0.0:
-                scaled_brightness = int(neopixel_brightness * 100)
-                mqtt_client.publish((MQTT_BRIGHTNESS_STATE_TOPIC).encode(), str(scaled_brightness).encode())
-        except:
-            pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+        if neopixel_brightness > 0.0:
+            # Brightness State
+            try:
+                    scaled_brightness = int(neopixel_brightness*100)
+                    mqtt_client.publish((MQTT_BRIGHTNESS_STATE_TOPIC).encode(), (str(scaled_brightness)).encode())
+            except:
+                pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
 
-        await asyncio.sleep_ms(50)  # Adjust the sleep time as needed
+            # RGB State
+            try:
+                if neopixel_mode != "rainbow" and neopixel_mode != "watercolor":
+                    mqtt_client.publish((MQTT_RGB_STATE_TOPIC).encode(), (neopixel_rgb).encode())
+            except:
+                pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+
+            # NeoPixel Mode State
+            try:
+                mqtt_client.publish((MQTT_EFFECT_STATE_TOPIC).encode(), (neopixel_mode).encode())
+            except:
+                pass # ignore any error so it wont spam the serial when no mqtt or wifi is available
+
+        await asyncio.sleep_ms(100)  # Adjust the sleep time as needed
 
 # Neopixel loop
 async def run_neopixel():

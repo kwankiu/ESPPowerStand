@@ -81,9 +81,13 @@ i2c = SoftI2C(sda=Pin(1), scl=Pin(0))
 display = ssd1306.SSD1306_I2C(128, 64, i2c)
 
 # Define the pin and number of NeoPixels
-pin = Pin(12)
-num_pixels = 30
-np = NeoPixel(pin, num_pixels)
+neopixel_pin = Pin(12)
+neopixel_num = 30
+np = NeoPixel(neopixel_pin, neopixel_num)
+
+# Define wirelss charger signal pin
+charger_signal = Pin(3, Pin.IN)
+charger_last=None
 
 rtc = RTC()
 wifi = network.WLAN(network.STA_IF)
@@ -304,8 +308,8 @@ async def random_flash(num_flashes, flash_duration, delay):
 async def rainbow_cycle(wait):
     flag_break = False  # Flag to indicate if we should break out of loops
     for j in range(255):
-        for i in range(num_pixels):
-            pixel_index = (i * 256 // num_pixels) + j
+        for i in range(neopixel_num):
+            pixel_index = (i * 256 // neopixel_num) + j
             np[i] = scale_brightness(wheel(pixel_index & 255), neopixel_brightness)
             # Break the function for real time neopixel mode switch
             if last_neopixel != neopixel_mode:
@@ -331,15 +335,15 @@ async def watercolor_rainbow_cycle(wait):
     colors = repeat_colors(colors, 6)
     num_colors = len(colors)
 
-    for j in range(-num_pixels * 2, num_pixels * 2):
-        for i in range(num_pixels):
+    for j in range(-neopixel_num * 2, neopixel_num * 2):
+        for i in range(neopixel_num):
             color_index = (i + j) % (num_colors * 2)
 
             if color_index >= num_colors:
                 color_index = (num_colors - 1) - (color_index - num_colors)
 
             # Calculate a smooth transition between colors
-            ratio = abs(j) / (num_pixels * 2)
+            ratio = abs(j) / (neopixel_num * 2)
 
             # Interpolate between consecutive colors
             interpolated_color = interpolate_color(colors[color_index], colors[(color_index + 1) % num_colors], ratio)
@@ -394,6 +398,7 @@ display.fill(0)
     
 # Main loop
 async def main():
+    global charger_last
     while True:
         # Fetch current time and date
         current_time = await get_world_time()
@@ -411,9 +416,10 @@ async def main():
             time_string = "00:00"
             date_string = "01 Jan 2000"
         
-        # Clear the previous time and date
+        # Clear the area
         display.fill_rect(28, 12, 72, 24, 0)  # Clear the time area
         display.fill_rect(16, 48, 96, 8, 0)  # Clear the date area
+        display.fill_rect(105, 2, 15, 47, 0) # Clear the right patterns
         
         # Display time and date
         display.overlap_wrap(time_string, 28, 16, 3)
@@ -422,9 +428,27 @@ async def main():
         display.vline(9, 8, 40, 1)
         display.vline(16, 2, 40, 1)
         display.vline(23, 8, 40, 1)
-        display.vline(105, 8, 40, 1)
-        display.vline(112, 2, 40, 1)
-        display.vline(119, 8, 40, 1)              
+
+        if charger_signal.value():
+            if charger_last != 1:
+                print("Charging")
+                charger_last=1
+
+            # Lightning bolt symbol
+            display.line(112, 8, 105, 28, 1)
+            display.line(105, 28, 119, 28, 1)
+            display.line(119, 28, 112, 48, 1)
+
+        else:
+            if charger_last == 1:
+                print("Not Charging")
+
+            display.vline(105, 8, 40, 1)
+            display.vline(112, 2, 40, 1)
+            display.vline(119, 8, 40, 1) 
+
+            charger_last=0
+             
         display.show()
         
         # Allow other tasks to run by yielding control to the event loop
@@ -441,7 +465,6 @@ async def mqtt_message_checker():
 
 # Separate loop for MQTT message sending
 async def mqtt_message_sender():
-    #global neopixel_brightness, neopixel_mode, neopixel_rgb, neopixel_speed
     while True:
 
         # ON / OFF State

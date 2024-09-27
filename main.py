@@ -76,9 +76,21 @@ device_properties = {
 # Convert to JSON
 device_json = ujson.dumps(device_properties)
 
-# Using default address 0x3C
-i2c = SoftI2C(sda=Pin(1), scl=Pin(0))
-display = ssd1306.SSD1306_I2C(128, 64, i2c)
+# Create a dummy display class dynamically
+class DummyDisplay:
+    def __getattr__(self, name):
+        # Return a no-op function for any method called
+        def no_op(*args, **kwargs):
+            pass
+        return no_op
+
+# Initialize SSD1306
+try:
+    i2c = SoftI2C(sda=Pin(1), scl=Pin(0))
+    display = ssd1306.SSD1306_I2C(128, 64, i2c)
+except OSError:
+    display = DummyDisplay()
+    print("Unable to connect to i2C Display")
 
 # Define the pin and number of NeoPixels
 neopixel_pin = Pin(12)

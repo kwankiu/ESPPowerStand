@@ -1,0 +1,13 @@
+{
+    "wifi_ssid":"YOUR_SSID",
+    "wifi_password":"YOUR_PASSWORD",
+    "mqtt_broker": "YOUR_MQTT_URL",
+    "mqtt_port": "YOUR_MQTT_PORT",
+    "mqtt_user": "YOUR_USERNAME",
+    "mqtt_password": "YOUR_PASSWORD",
+    "devices": {
+        "name": "MyFirst Light",
+        "type": "light",
+        "mode": "rainbow"
+    }
+}
